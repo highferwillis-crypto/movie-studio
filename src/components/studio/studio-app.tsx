@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { ChatPane } from "@/components/studio/chat-pane";
 import { CutPane } from "@/components/studio/cut-pane";
 import { LibraryPane } from "@/components/studio/library-pane";
+import { SettingsPane } from "@/components/studio/settings-pane";
 import { StagePane } from "@/components/studio/stage-pane";
 import { markSpoken, playSpeech, spokenId, voiceEnabled } from "@/components/studio/speech";
 import { Btn, Select, controlClass } from "@/components/studio/ui";
@@ -93,11 +94,14 @@ export function StudioApp() {
         </p>
       ) : null}
       <nav className={`hidden gap-2 border-b border-line px-4 py-2 md:flex ${wide ? "md:hidden" : ""}`}>
-        <Btn tone={pane === "cut" ? "quiet" : "solid"} onClick={() => setPane("stage")}>
+        <Btn tone={pane === "cut" ? "quiet" : pane === "settings" ? "quiet" : "solid"} onClick={() => setPane("stage")}>
           Stage
         </Btn>
         <Btn tone={pane === "cut" ? "solid" : "quiet"} onClick={() => setPane("cut")}>
           Cut
+        </Btn>
+        <Btn tone={pane === "settings" ? "solid" : "quiet"} onClick={() => setPane("settings")}>
+          Settings
         </Btn>
       </nav>
       <nav className={`flex border-b border-line md:hidden ${wide ? "hidden" : ""}`}>
@@ -106,6 +110,7 @@ export function StudioApp() {
             ["library", "Library"],
             ["stage", "Stage"],
             ["cut", "Cut"],
+            ["settings", "Settings"],
             ["chat", "Editor"],
           ] as const
         ).map(([id, label]) => (
@@ -125,9 +130,11 @@ export function StudioApp() {
         >
           {ready ? <LibraryPane /> : <p className="p-4 text-sm text-stone">Opening the library…</p>}
         </aside>
-        <main className={`${wide || pane === "stage" || pane === "cut" ? "block" : "hidden"} min-h-0 md:block ${wide ? "flex-1" : ""}`}>
+        <main className={`${wide || pane === "stage" || pane === "cut" || pane === "settings" ? "block" : "hidden"} min-h-0 md:block ${wide ? "flex-1" : ""}`}>
           {pane === "cut" ? (
             <CutPane expanded={wide} onExpand={() => setCutFocus(true)} onMinimize={() => setCutFocus(false)} />
+          ) : pane === "settings" ? (
+            <SettingsPane />
           ) : (
             <StagePane />
           )}

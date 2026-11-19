@@ -1,5 +1,6 @@
 import { create } from "zustand";
-import { askEditor, beginShot, generateStills, planNextShot, pollShot } from "@/lib/studio/api.functions";
+import { askEditor, beginShot, generateCustom, generateStills, planNextShot, pollShot } from "@/lib/studio/api.functions";
+import { runLocalCheckpoint } from "@/lib/studio/comfy-local";
 import { dbAll, dbDel, dbDelBlob, dbGetBlob, dbPut, dbPutBlob, uid } from "@/lib/studio/idb";
 import { fileToJpegDataUrl, probeDuration, videoPoster } from "@/lib/studio/media";
 import {
@@ -14,6 +15,7 @@ import {
   tagFromTitle,
   type CanonAsset,
 } from "@/lib/studio/prompt";
+import { batchCap, frameSize, readSettings, writeSettings, type StudioSettings } from "@/lib/studio/settings";
 import type {
   Asset,
   AssetKind,
@@ -72,7 +74,7 @@ type StudioState = {
   activeProjectId: string | null;
   activeFolderId: string | null;
   selectedAssetId: string | null;
-  pane: "library" | "stage" | "cut" | "chat";
+  pane: "library" | "stage" | "cut" | "chat" | "settings";
   mode: "still" | "motion";
   prompt: string;
   styleId: string;
@@ -85,6 +87,7 @@ type StudioState = {
   cadence: 24 | 30 | 48;
   pinFirst: boolean;
   absolute: boolean;
+  settings: StudioSettings;
   targetSeconds: number;
   strip: StripItem[];
   candidates: Candidate[];
@@ -120,6 +123,7 @@ type StudioState = {
   saveNote: (title: string, body: string) => Promise<void>;
   setMode: (mode: "still" | "motion") => void;
   setPrompt: (prompt: string) => void;
+  updateSettings: (patch: Partial<StudioSettings>) => void;
   patchStage: (patch: Partial<Pick<StudioState, "styleId" | "aspect" | "stillRes" | "motionRes" | "quality" | "batch" | "duration" | "cadence" | "pinFirst" | "absolute" | "targetSeconds">>) => void;
   addUploadsToStrip: (files: File[]) => Promise<void>;
   useAsset: (id: string) => Promise<void>;
@@ -177,6 +181,7 @@ export const useStudio = create<StudioState>((set, get) => ({
   cadence: 24,
   pinFirst: false,
   absolute: true,
+  settings: readSettings(),
   targetSeconds: 120,
   strip: [],
   candidates: [],
@@ -482,6 +487,12 @@ export const useStudio = create<StudioState>((set, get) => ({
 
   setPrompt: (prompt) => set({ prompt, revealed: "" }),
 
+  updateSettings: (patch) => {
+    const settings = { ...get().settings, ...patch };
+    writeSettings(settings);
+    set({ settings });
+  },
+
   patchStage: (patch) => set({ ...patch, revealed: "" }),
 
   addUploadsToStrip: async (files) => {
@@ -560,6 +571,78 @@ export const useStudio = create<StudioState>((set, get) => ({
       const compiled = await assemble(get);
       if (token !== generation) return;
       set({ warnings: compiled.warnings });
+      const settings = get().settings;
+      if (settings.engine === "comfy") {
+        if (get().mode !== "still") {
+          set({
+            busy: false,
+            busyLabel: "",
+            error: "A basic checkpoint renders stills. Switch Run to xAI for a shot, or stay on Stills.",
+          });
+          return;
+        }
+        const size = frameSize(get().aspect, settings.maxSide);
+        set({ busyLabel: `Local checkpoint · ${size.width}×${size.height} · ${settings.steps} steps` });
+        const blobs = await runLocalCheckpoint({
+          settings,
+          prompt: compiled.prompt,
+          aspect: get().aspect,
+          batch: Math.min(batchCap(settings.profile), Math.max(1, Math.round(get().batch) || 1)),
+          cancelled: () => token !== generation,
+        });
+        if (token !== generation) return;
+        const projectId = get().activeProjectId;
+        const folderId = projectId ? folderIdFor(get().folders, projectId, "stills") : "";
+        const candidates: Candidate[] = blobs.map((blob, index) => ({
+          id: uid(),
+          url: URL.createObjectURL(blob),
+          blob,
+          prompt: compiled.prompt,
+          title: `Still ${index + 1}`,
+          tags: "",
+          folderId,
+        }));
+        for (const old of get().candidates) URL.revokeObjectURL(old.url);
+        set({ candidates, busy: false, busyLabel: "", notice: "Stills are in the bay. Nothing is filed until you keep one." });
+        return;
+      }
+      if (settings.engine === "api" && get().mode === "still") {
+        const size = frameSize(get().aspect, settings.maxSide);
+        const wanted = Math.min(batchCap(settings.profile), Math.max(1, Math.round(get().batch) || 1));
+        const result = await generateCustom({
+          data: {
+            base: settings.apiBase,
+            apiKey: settings.apiKey,
+            model: settings.apiModel,
+            prompt: compiled.prompt,
+            n: wanted,
+            size: `${size.width}x${size.height}`,
+          },
+        });
+        if (token !== generation) return;
+        if (!result.ok) {
+          set({ busy: false, busyLabel: "", error: result.error });
+          return;
+        }
+        const projectId = get().activeProjectId;
+        const folderId = projectId ? folderIdFor(get().folders, projectId, "stills") : "";
+        const candidates: Candidate[] = [];
+        for (const [index, dataUrl] of result.images.entries()) {
+          const blob = await (await fetch(dataUrl)).blob();
+          candidates.push({
+            id: uid(),
+            url: URL.createObjectURL(blob),
+            blob,
+            prompt: compiled.prompt,
+            title: `Still ${index + 1}`,
+            tags: "",
+            folderId,
+          });
+        }
+        for (const old of get().candidates) URL.revokeObjectURL(old.url);
+        set({ candidates, busy: false, busyLabel: "", notice: "Stills are in the bay. Nothing is filed until you keep one." });
+        return;
+      }
       if (get().mode === "still") {
         const wanted = Math.min(10, Math.max(1, Math.round(get().batch) || 1));
         const images: string[] = [];

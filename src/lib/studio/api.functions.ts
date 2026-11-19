@@ -30,6 +30,29 @@ function readRefs(value: unknown, max: number): { dataUrl: string; tag: string }
   });
 }
 
+export const generateCustom = createServerFn({ method: "POST" })
+  .validator((input: unknown) => {
+    const data = asRecord(input);
+    const base = typeof data.base === "string" ? data.base.trim() : "";
+    const apiKey = typeof data.apiKey === "string" ? data.apiKey : "";
+    const model = typeof data.model === "string" ? data.model.trim() : "";
+    const prompt = typeof data.prompt === "string" ? data.prompt.trim() : "";
+    if (!base) throw new Error("Set the API address in Settings.");
+    if (!prompt) throw new Error("Write a scene before rendering.");
+    return {
+      base: base.slice(0, 300),
+      apiKey: apiKey.slice(0, 500),
+      model: model.slice(0, 120),
+      prompt: prompt.slice(0, 8000),
+      n: clampInt(data.n, 1, 10, 1),
+      size: typeof data.size === "string" ? data.size.slice(0, 20) : "1024x1024",
+    };
+  })
+  .handler(async ({ data }) => {
+    const { generateCustomStills } = await import("./custom-api.server");
+    return generateCustomStills(data);
+  });
+
 export const generateStills = createServerFn({ method: "POST" })
   .validator((input: unknown) => {
     const data = asRecord(input);
