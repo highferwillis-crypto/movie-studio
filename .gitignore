@@ -1,0 +1,14 @@
+node_modules
+dist
+.output
+.vinxi
+.tanstack
+.env
+.env.*
+.grok
+screenshots
+artifacts
+.project_id
+.node_modules.lock
+AGENTS.md
+AGENTS.project.md
