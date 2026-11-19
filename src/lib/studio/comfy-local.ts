@@ -57,8 +57,8 @@ export async function runLocalCheckpoint(input: {
   cancelled: () => boolean;
 }): Promise<Blob[]> {
   const host = input.settings.comfyHost.replace(/\/$/, "");
-  const checkpoint = input.settings.checkpoint.trim();
-  if (!checkpoint) throw new Error("Name the checkpoint file in Settings.");
+  const checkpoint = (input.settings.checkpoint.trim().split(/[/\\]/).pop() ?? "").trim();
+  if (!checkpoint) throw new Error("Choose a checkpoint model in Settings.");
   const size = frameSize(input.aspect, input.settings.maxSide);
   const queued = await fetch(`${host}/prompt`, {
     method: "POST",
@@ -78,11 +78,11 @@ export async function runLocalCheckpoint(input: {
     }),
   }).catch(() => null);
   if (!queued) {
-    throw new Error("Could not reach ComfyUI. Start it on this machine and allow cross-origin access.");
+    throw new Error("Could not reach the local server. Start it on this machine and allow cross-origin access.");
   }
   const body = (await queued.json().catch(() => null)) as { prompt_id?: string; error?: unknown } | null;
   if (!queued.ok || !body?.prompt_id) {
-    const reason = body?.error ? JSON.stringify(body.error) : `ComfyUI refused the graph (${queued.status}).`;
+    const reason = body?.error ? JSON.stringify(body.error) : `The local server refused that model (${queued.status}).`;
     throw new Error(reason);
   }
   const promptId = body.prompt_id;
@@ -94,7 +94,7 @@ export async function runLocalCheckpoint(input: {
     const payload = (await history.json()) as Record<string, { status?: { status_str?: string }; outputs?: Record<string, { images?: OutFile[] }> }>;
     const entry = payload[promptId];
     if (!entry) continue;
-    if (entry.status?.status_str === "error") throw new Error("ComfyUI failed that checkpoint run.");
+    if (entry.status?.status_str === "error") throw new Error("The local server failed that checkpoint.");
     const files = filesOf(entry.outputs);
     if (!files.length) continue;
     const blobs: Blob[] = [];
@@ -104,10 +104,10 @@ export async function runLocalCheckpoint(input: {
       view.searchParams.set("type", file.type || "output");
       if (file.subfolder) view.searchParams.set("subfolder", file.subfolder);
       const image = await fetch(view, { mode: "cors" });
-      if (!image.ok) throw new Error("ComfyUI finished, but the still could not be downloaded.");
+      if (!image.ok) throw new Error("The still finished, but it could not be downloaded.");
       blobs.push(await image.blob());
     }
     return blobs;
   }
-  throw new Error("ComfyUI is still rendering. Try again in a moment.");
+  throw new Error("The checkpoint is still rendering. Try again in a moment.");
 }

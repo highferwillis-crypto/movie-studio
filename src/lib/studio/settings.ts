@@ -20,7 +20,7 @@ export const DEFAULT_SETTINGS: StudioSettings = {
   apiModel: "grok-imagine-image-2.0",
   apiKey: "",
   comfyHost: "http://127.0.0.1:8188",
-  checkpoint: "v1-5-pruned-emaonly.safetensors",
+  checkpoint: "",
   profile: "balanced",
   steps: 20,
   cfg: 7,

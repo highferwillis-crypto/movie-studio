@@ -577,12 +577,12 @@ export const useStudio = create<StudioState>((set, get) => ({
           set({
             busy: false,
             busyLabel: "",
-            error: "A basic checkpoint renders stills. Switch Run to xAI for a shot, or stay on Stills.",
+            error: "A checkpoint model renders stills to the studio specs. Switch Run to Built-in for a shot, or stay on Stills.",
           });
           return;
         }
         const size = frameSize(get().aspect, settings.maxSide);
-        set({ busyLabel: `Local checkpoint · ${size.width}×${size.height} · ${settings.steps} steps` });
+        set({ busyLabel: `Checkpoint · ${size.width}×${size.height} · ${settings.steps} steps` });
         const blobs = await runLocalCheckpoint({
           settings,
           prompt: compiled.prompt,

@@ -15,7 +15,7 @@ Open source under the MIT license.
 
 Pictures and shots stay in the browser (IndexedDB). Generation calls the xAI API from the server unless you change Settings. Set `XAI_API_KEY` in the environment for the built-in engine. Do not commit that key.
 
-In Settings you can point stills at another image API (`POST /v1/images/generations`) or at a local ComfyUI checkpoint. The laptop profiles (Efficient, Balanced, Full) only change resolution, steps, and batch. They do not change the machine’s power settings. A basic checkpoint run uses Checkpoint Loader, an empty latent, Euler, and a VAE. The checkpoint filename has to exist in that ComfyUI install. Shots stay on the built-in video service.
+In Settings you can point stills at another image API (`POST /v1/images/generations`) or choose a checkpoint model of any type. The studio prompt, aspect, batch, and laptop steps drive that render. The checkpoint file name is what the local server loads. Shots stay on the built-in engine.
 
 ## Run
 

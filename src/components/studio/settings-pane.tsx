@@ -5,7 +5,7 @@ import { Btn, Field, controlClass } from "@/components/studio/ui";
 const ENGINES: { id: Engine; label: string }[] = [
   { id: "xai", label: "Built-in" },
   { id: "api", label: "API server" },
-  { id: "comfy", label: "Local checkpoint" },
+  { id: "comfy", label: "Checkpoint" },
 ];
 
 const PROFILES: { id: LaptopProfile; label: string; note: string }[] = [
@@ -34,7 +34,7 @@ export function SettingsPane() {
       <div>
         <h2 className="font-display text-2xl leading-none">Settings</h2>
         <p className="mt-1 text-sm text-stone">
-          Download the app, point stills at any image API, or run a basic checkpoint on this laptop through ComfyUI.
+          Download the app, point stills at any image API, or choose a checkpoint model. The studio’s prompt, aspect, batch, and steps drive the render.
         </p>
       </div>
 
@@ -98,25 +98,39 @@ export function SettingsPane() {
         ) : null}
         {settings.engine === "comfy" ? (
           <div className="grid gap-3">
-            <Field label="ComfyUI address">
-              <input
-                value={settings.comfyHost}
-                onChange={(event) => updateSettings({ comfyHost: event.target.value })}
-                aria-label="ComfyUI address"
-                className={controlClass}
-              />
-            </Field>
-            <Field label="Checkpoint">
+            <Field label="Checkpoint model">
               <input
                 value={settings.checkpoint}
                 onChange={(event) => updateSettings({ checkpoint: event.target.value })}
-                placeholder="anything-v5.safetensors"
-                aria-label="Checkpoint"
+                placeholder="Choose a model, any type"
+                aria-label="Checkpoint model"
+                className={controlClass}
+              />
+            </Field>
+            <label className="flex h-11 cursor-pointer items-center justify-center rounded-md border border-dashed border-line text-sm text-stone">
+              Choose a model file
+              <input
+                type="file"
+                accept=".safetensors,.ckpt,.pt,.pth,.bin,.gguf,.sft"
+                className="sr-only"
+                onChange={(event) => {
+                  const file = event.target.files?.[0];
+                  event.target.value = "";
+                  if (!file) return;
+                  updateSettings({ checkpoint: file.name });
+                }}
+              />
+            </label>
+            <Field label="Local server">
+              <input
+                value={settings.comfyHost}
+                onChange={(event) => updateSettings({ comfyHost: event.target.value })}
+                aria-label="Local server"
                 className={controlClass}
               />
             </Field>
             <p className="text-xs text-mist">
-              Any basic checkpoint ComfyUI can load with Checkpoint Loader. The filename has to match the file in that install. ComfyUI must already be running, with cross-origin access open. This graph is a still: empty latent, one sampler, one VAE.
+              Any checkpoint type. Pick it from this computer, a jump drive, or an external. The studio uses that file name, then renders to the open project: the prompt, the aspect, the batch, and the laptop steps. The server has to already be running and able to load that file. Shots stay on Built-in.
             </p>
           </div>
         ) : null}
